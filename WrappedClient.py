@@ -175,3 +175,11 @@ class WrappedClient():
         torrent.start()
         torrent = self._client.get_torrent(id)
         return self.torrent_map(torrent)
+
+    @connection_needed
+    def delete_torrent(self, id: int) -> Any:
+        try:
+            resp = self._client.remove_torrent(id)
+        except KeyError:
+            return None
+        return id

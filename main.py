@@ -1,20 +1,30 @@
+from crypt import methods
+from email import header
 import json
 from textwrap import wrap
 from typing import Any
 from flask import Flask
 from flask import request
+from flask import Response
+from flask import make_response
 from WrappedClient import WrappedClient
 import json
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 client = WrappedClient(username="transmission", password="transmission")
+debug_origin = '*'
 
 def response(status: str, data: Any=None) -> str:
     response_json = {
         'status': status,
         'data': data if data != None else {}
     }
-    return json.dumps(response_json)
+    resp = Response(response=json.dumps(response_json))
+    resp.headers['Access-Control-Allow-Origin'] = debug_origin
+    resp.content_type = 'application/json'
+    return resp
 
 def online(func) -> Any:
     def wrapper(*args, **kwargs) -> Any:
@@ -87,6 +97,16 @@ def stop_torrent(id=id):
     if torrent == None:
         return response('not found')
     return response('success', torrent)
+
+@app.get('/torrents/<id>/delete', endpoint='delete_torrent')
+@online
+@validate_id
+def delete_torrent(id=id):
+    resp = client.delete_torrent(int(id))
+    if resp == None:
+        return response('not found')
+    else:
+        return response('success')
 
 @app.get('/config', endpoint='get_config')
 def get_config():
