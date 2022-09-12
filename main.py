@@ -1,6 +1,7 @@
 from crypt import methods
 from email import header
 import json
+from logging import handlers
 from textwrap import wrap
 from typing import Any
 from flask import Flask
@@ -12,8 +13,39 @@ import json
 from flask_cors import CORS
 import os
 from werkzeug.utils import secure_filename
+from logging.config import dictConfig
+import logging
 
 UPLOAD_FOLDER = './tmp'
+LOG_FILE = './log/app.log'
+
+dictConfig({
+    'version': 1,
+    'formatters': {
+        'default': {
+            'format': '[%(asctime)s] %(levelname)s: %(message)s',
+        },
+        'detailed': {
+            'format': '[%(asctime)s] %(levelname)s\t\t in %(funcName)s\t of %(module)s\t: %(message)s',
+        }
+    },
+    'handlers': {
+        'wsgi': {
+            'class': 'logging.StreamHandler',
+            'stream': 'ext://flask.logging.wsgi_errors_stream',
+            'formatter': 'default'
+        },
+        'file': {
+            'class': 'logging.handlers.WatchedFileHandler',
+            'filename': LOG_FILE,
+            'formatter': 'detailed'
+        }
+    },
+    'root': {
+        'level': 'INFO',
+        'handlers': ['wsgi', 'file']
+    }
+})
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -98,7 +130,7 @@ def stop_torrent(id=id):
 @app.get('/torrents/<id>/start', endpoint='start_torrent')
 @online
 @validate_id
-def stop_torrent(id=id):
+def start_torrent(id=id):
     torrent = client.start_torrent(int(id))
     if torrent == None:
         return response('not found')
@@ -119,18 +151,18 @@ def delete_torrent(id=id):
 def add_torrent():
     if request.method == "POST":
         if 'path' not in request.form:
-            print("No location provided")
+            logging.info("No download location provided")
             return response('no location')
         
         if 'file' not in request.files:
-            print("No file was sent")
+            logging.info('No file was sent in request')
             return response('no file')
         file = request.files['file']
         if file.filename == '':
-            print("Empty file sent")
+            logging.info("Empty file sent in request")
             return response('no file')
         if not ('.' in file.filename and file.filename.rsplit('.', 1)[1].lower() == 'torrent'):
-            print("Bad file format")
+            logging.info(f"Bad file format: {file.filename}")
             return response('bad file format')
         filename = secure_filename(file.filename)
         full_filename = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -153,7 +185,7 @@ def set_config():
     missing_key = False
     requested_config = request.get_json(force=True)
     for key in requested_config:
-        print(f'reuqesting to change {key}')
+        logging.info(f"Requesting change for config {key} to {requested_config[key]}")
         if client.set_config(key, requested_config[key]) == None:
             missing_key = True
     

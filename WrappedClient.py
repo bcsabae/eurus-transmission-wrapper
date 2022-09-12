@@ -5,7 +5,7 @@ from transmission_rpc.torrent import Status
 import transmission_rpc.error as error
 from urllib.parse import urlparse
 import json
-import io
+import logging
 
 class WrappedClient():
     _client = None
@@ -19,14 +19,14 @@ class WrappedClient():
         self._username = username
         self._password = password
 
-        # TODO: check if config file is writeable
+        logging.info("App started")
+
         try:
             with open(self._config_file) as cf:
                 self._config = json.load(cf)
         except FileNotFoundError:
-            # LOG: config file not found
-            print("file not found")
-            return
+            logging.critical(f"Config file not found: {self._config_file}")
+            raise FileNotFoundError
 
         self.connect()
         
@@ -34,16 +34,15 @@ class WrappedClient():
 
     def connect(self) -> bool:
         self._url = self.get_config('server_address')
+        logging.info(f"Connecting to {self._url}")
         if self._url == None:
-            # LOG: not a valid URL
-            print("not a valid URL")
+            logging.error(f"{self._url} is not a valid URL, aborting connection")
             self._connected = False
             return False
 
         parsed_url = urlparse(self._url)
         if parsed_url.scheme != 'http' or not parsed_url.netloc:
-            # LOG
-            print("not a valid url")
+            logging.error(f"{self._url} is not a valid URL, aborting connection")
             self._connected = False
             return False
 
@@ -53,13 +52,11 @@ class WrappedClient():
             self._authenticated = True
             return True
         except error.TransmissionConnectError:
-            # LOG: cannot connect to server
-            print("cannot connect to server")
+            logging.error(f"Cannot connect to RPC server at {self._url}")
             self._connected = False
             return False
         except error.TransmissionAuthError:
-            # LOG: authentication failure
-            print("authentication failure")
+            logging.error("Authentication failre, aborting connection")
             self._connected = True
             self._authenticated = False
             return False
@@ -71,7 +68,7 @@ class WrappedClient():
             if args[0].is_connected():
                 return func(*args, **kwargs)
             else:
-                print("not connected")
+                logging.debug("Function call prevented, client is not connected")
                 return None
         return wrapper
 
@@ -80,18 +77,20 @@ class WrappedClient():
             with open(self._config_file, 'w') as cf:
                 json.dump(self._config, cf)
         except FileNotFoundError:
+            logging.error(f"Cannot write config: {self._config_file} not found")
             return False
         except PermissionError:
+            logging.error(f"Cannot write config: {self._config_file} is not writeable")
             return False
         return True
 
     def get_config(self, key: str = None) -> Any:
         if key == None:
-            print(self._config)
             return self._config
         try:
             value = self._config[key]
         except KeyError:
+            logging.debug(f"Tried to access non-existing config: {key}")
             value = None
         return value
 
@@ -101,6 +100,7 @@ class WrappedClient():
         self._config[key] = value
         could_write = self._write_config()
         if key == "server_address":
+            logging.info(f"Server address modified, reconnecting to {self._config[key]}")
             self.connect()
         
         return value if could_write else False
@@ -154,6 +154,7 @@ class WrappedClient():
         try:
             torrent = self._client.get_torrent(id)
         except KeyError:
+            logging.debug(f"No torrent with ID {id}")
             return None
         return self.torrent_map(torrent)
 
@@ -162,6 +163,7 @@ class WrappedClient():
         try:
             torrent = self._client.get_torrent(id)
         except KeyError:
+            logging.debug(f"No torrent with ID {id}")
             return None
         torrent.stop()
         torrent = self._client.get_torrent(id)
@@ -172,6 +174,7 @@ class WrappedClient():
         try:
             torrent = self._client.get_torrent(id)
         except KeyError:
+            logging.debug(f"No torrent with ID {id}")
             return None
         torrent.start()
         torrent = self._client.get_torrent(id)
@@ -182,6 +185,7 @@ class WrappedClient():
         try:
             resp = self._client.remove_torrent(id)
         except KeyError:
+            logging.debug(f"No torrent with ID {id}")
             return None
         return id
     
@@ -192,13 +196,13 @@ class WrappedClient():
                 try:
                     resp = self._client.add_torrent(file, download_dir=location)
                 except error.TransmissionError as e:
-                    print("api error: " + e.message)
+                    logging.debug(f"API error: {e.message}")
                     return None
                 except TypeError:
-                    print("not valid file")
+                    logging.debug("Invalid file")
                     return None
                 return resp
         except FileNotFoundError:
-            print("file does not exist")
+            logging.debug(f"File {filename} doesn't exist")
             return None
         return None
