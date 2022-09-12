@@ -5,6 +5,7 @@ from transmission_rpc.torrent import Status
 import transmission_rpc.error as error
 from urllib.parse import urlparse
 import json
+import io
 
 class WrappedClient():
     _client = None
@@ -183,3 +184,21 @@ class WrappedClient():
         except KeyError:
             return None
         return id
+    
+    @connection_needed
+    def add_torrent(self, filename, location):
+        try:
+            with open(filename, 'rb') as file:
+                try:
+                    resp = self._client.add_torrent(file, download_dir=location)
+                except error.TransmissionError as e:
+                    print("api error: " + e.message)
+                    return None
+                except TypeError:
+                    print("not valid file")
+                    return None
+                return resp
+        except FileNotFoundError:
+            print("file does not exist")
+            return None
+        return None

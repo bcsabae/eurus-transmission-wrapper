@@ -10,8 +10,14 @@ from flask import make_response
 from WrappedClient import WrappedClient
 import json
 from flask_cors import CORS
+import os
+from werkzeug.utils import secure_filename
+
+UPLOAD_FOLDER = './tmp'
 
 app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 CORS(app)
 client = WrappedClient(username="transmission", password="transmission")
 debug_origin = '*'
@@ -106,6 +112,35 @@ def delete_torrent(id=id):
     if resp == None:
         return response('not found')
     else:
+        return response('success')
+
+@app.post('/torrents/new', endpoint='add_torrent')
+@online
+def add_torrent():
+    if request.method == "POST":
+        if 'path' not in request.form:
+            print("No location provided")
+            return response('no location')
+        
+        if 'file' not in request.files:
+            print("No file was sent")
+            return response('no file')
+        file = request.files['file']
+        if file.filename == '':
+            print("Empty file sent")
+            return response('no file')
+        if not ('.' in file.filename and file.filename.rsplit('.', 1)[1].lower() == 'torrent'):
+            print("Bad file format")
+            return response('bad file format')
+        filename = secure_filename(file.filename)
+        full_filename = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(full_filename)
+        
+        download_path = request.form['path']
+        
+        resp = client.add_torrent(full_filename, download_path)
+        os.remove(full_filename)
+        
         return response('success')
 
 @app.get('/config', endpoint='get_config')
