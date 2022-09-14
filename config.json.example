@@ -1,0 +1,1 @@
+{"server_address": "http://192.168.0.1:9091/transmission/rpc", "default_download_dir": "/opt/transmission/download"}
