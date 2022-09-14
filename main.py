@@ -1,13 +1,9 @@
-from crypt import methods
-from email import header
 import json
-from logging import handlers
 from textwrap import wrap
 from typing import Any
 from flask import Flask
 from flask import request
 from flask import Response
-from flask import make_response
 from WrappedClient import WrappedClient
 import json
 from flask_cors import CORS
@@ -16,9 +12,12 @@ from werkzeug.utils import secure_filename
 from logging.config import dictConfig
 import logging
 
+
+# App configuration
 UPLOAD_FOLDER = './tmp'
 LOG_FILE = './log/app.log'
 
+# Logging configuration
 dictConfig({
     'version': 1,
     'formatters': {
@@ -47,12 +46,20 @@ dictConfig({
     }
 })
 
+# Instantiate app
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# Remove this if you don't need CORS
 CORS(app)
-client = WrappedClient(username="transmission", password="transmission")
 debug_origin = '*'
+
+# Instantiate wrapper
+client = WrappedClient()
+
+
+
+# API functions
 
 def response(status: str, data: Any=None) -> str:
     response_json = {
