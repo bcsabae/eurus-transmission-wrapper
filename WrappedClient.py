@@ -1,14 +1,20 @@
-from ctypes import Union
-from typing import Callable, Dict
+from typing import Callable, Dict, Union
 from transmission_rpc import Client, Torrent
 from transmission_rpc.torrent import Status
 import transmission_rpc.error as error
 from urllib.parse import urlparse
 import json
 import logging
+import os
 
 class WrappedClient:
-    """ Wrapper class for transmission_rpc's RPC client.
+    """ Wrapper class for transmission_rpc's RPC client. It has all basic features an everyday user needs, but nothing more. You can query
+        torrents, add and remove torrents. Connection to the RPC server is managed.
+    
+        Authentication towards the RPC server can be done either by providing the username
+        and password in the class constructor, or defining the following environmental variables (this overwrites the constructor)
+            'EURUS_WRAPPER_RPC_USERNAME'
+            'EURUS_WRAPPER_RPC_PASSWORD' 
 
     Public attributes: None
 
@@ -44,7 +50,7 @@ class WrappedClient:
         add_torrent(self, filename: str, location: str) -> Union[str, None]: Add torrent.
         delete_torrent(self, id: int) -> Union[int, None]: Delete a torrent.
 
-    
+
     Raises:
         FileNotFoundError: if config file provided in the constructor doesn't exist
     """
@@ -72,8 +78,8 @@ class WrappedClient:
             FileNotFoundError: Raised if the provided configuration file couldn't be found
         """
         self._config_file = config_file
-        self._username = username
-        self._password = password
+        self._username = os.environ.get('EURUS_WRAPPER_RPC_USERNAME') if os.environ.get('EURUS_WRAPPER_RPC_USERNAME') != None else username
+        self._password = os.environ.get('EURUS_WRAPPER_RPC_PASSWORD') if os.environ.get('EURUS_WRAPPER_RPC_PASSWORD') != None else password
 
         logging.info("App started")
 
